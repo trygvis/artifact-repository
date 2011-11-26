@@ -30,27 +30,38 @@ class MavenArtifactPathSpec extends Specification {
     }
 
     "3" in {
-      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", None, "jar"))
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", None, "jar", None, None))
     }
 
     "4" in {
-      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT-bin.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", Some("bin"), "jar"))
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT-bin.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", Some("bin"), "jar", None, None))
     }
 
     "5" in {
-      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT.pom") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", None, "pom"))
+      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT.pom") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", None, "pom", None, None))
     }
 
     "6" in {
-      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT.pom.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", None, "pom.sha1"))
+      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT.pom.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", None, "pom.sha1", None, None))
     }
 
     "7" in {
-      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT-sources.jar.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", Some("sources"), "jar.sha1"))
+      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT-sources.jar.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", Some("sources"), "jar.sha1", None, None))
     }
 
-    "7" in {
-      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-20111126.124501-1.jar.") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", Some("sources"), "jar.sha1", Some("20111126.124501"), Some(1)))
+    // Timestamp
+    "8" in {
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-20111126.124501-1.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", None, "jar", Some("20111126.124501"), Some("1")))
+    }
+
+    // Timestamp + sha1
+    "9" in {
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-20111126.124501-1.jar.sha1") must beSome(("com.example", "foo", "1.0-SNAPSHOT", None, "jar.sha1", Some("20111126.124501"), Some("1")))
+    }
+
+    // classifier + timestamp + sha1
+    "10" in {
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-20111126.124501-1-sources.jar.sha1") must beSome(("com.example", "foo", "1.0-SNAPSHOT", Some("sources"), "jar.sha1", Some("20111126.124501"), Some("1")))
     }
   }
 }

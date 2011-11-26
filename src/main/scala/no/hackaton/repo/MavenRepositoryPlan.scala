@@ -3,10 +3,12 @@ package no.hackaton.repo
 import unfiltered.filter._
 import unfiltered.request._
 import unfiltered.response._
+import java.util.regex._
+import java.util.regex.Pattern.quote
 
 class MavenRepositoryPlan extends Plan {
   def intent = {
-    case MavenArtifactPath(groupId, artifactId, version, classifier, t) =>
+    case MavenArtifactPath(groupId, artifactId, version, classifier, t, timestamp, buildNumber) =>
 //      println("MavenRepositoryPlan: type= " + t)
       if(t.endsWith(".sha1") || t.endsWith(".md5")) {
         Redirect("/dev/null")
@@ -14,20 +16,28 @@ class MavenRepositoryPlan extends Plan {
       else {
         Redirect("/upload?group-id=" + groupId + "&artifact-id=" + artifactId + "&version=" + version + classifier.map("&classifier=" + _).getOrElse("") + "&type=" + t)
       }
+    case MavenMetadata(_) =>
+      Redirect("/dev/null")
+  }
+}
+
+object MavenMetadata {
+  val regex = Pattern.compile("^/" + MavenArtifactPath.prefix + "/.*/maven-metadata.xml$")
+  def unapply[T](req: HttpRequest[T]): Option[Any] = {
+    Some(req.uri).filter(regex.matcher(_).find)
   }
 }
 
 object MavenArtifactPath {
+  def prefix = "maven-repo"
 //  def paths = """^/maven-repo\(/[a-zA-Z0-9]*\)""".r
 
 //  def p2 = """^\([a-zA-Z0-9]*\)-[a-zA-Z0-9]*-\([a-zA-Z0-9]*\)\.\([a-zA-Z0-9]*\)""".r
 
-  def unapply[T](req: HttpRequest[T]): Option[(String, String, String, Option[String], String)] = {
-    import java.util.regex._
-    import java.util.regex.Pattern.quote
-
+  // (groupId, artifactId, version, classifier, type, timestamp, buildNumber)
+  def unapply[T](req: HttpRequest[T]): Option[(String, String, String, Option[String], String, Option[String], Option[String])] = {
 //    println("req.uri=" + req.uri)
-    if(!req.uri.startsWith("/maven-repo/"))
+    if(!req.uri.startsWith("/" + prefix + "/"))
       return None
 
     val path = req.uri.substring(11)
@@ -38,62 +48,29 @@ object MavenArtifactPath {
 //    println("path=" + path)
 //    println("segments=" + segments)
     segments match {
-      case List(file, version, artifactId, groupId @ _*) => 
-//        println("---------------")
-//        println(("\\(" + quote(artifactId + "-" + version) + "\\)-\\(.*\\)\\.\\([a-zA-Z0-9]\\)*").r.findAllIn(file).toList)
-//        var r = ("\\(" + quote(artifactId + "-" + version) + "\\)\\.\\([a-zA-Z0-9]*\\)")
-        var r = ("(" + quote(artifactId + "-" + version) + ")((-)([_a-zA-Z0-9]*))?\\.([.a-zA-Z0-9]*)$")
-//        var r = ("(" + quote(artifactId) + ")-((2.0-SNAPSHOT)|([.-a-zA-Z0-9]*))?\\.([a-zA-Z0-9]*)")
-//        r = "(foo-1.0-SNAPSHOT).(jar)"
-        /*
-        println("r = " + r)
-        println("r.pattern = " + r.r.pattern)
-        println("file=" + file)
-        println("matches=" + r.r.findAllIn(file))
-        println("matches=" + r.r.findAllIn(file).matchData)
-        println("subgroups=" + r.r.findAllIn(file).subgroups)
-        println("---------------")
-        */
-        /*
-        println("r = " + r)
-        println("file = " + file)
-        val matcher = Pattern.compile(r).matcher(file)
-        val find = matcher.find()
-        println("matcher.find=" + find)
-        println("matcher.groupCount=" + matcher.groupCount())
-        if(find) {
-          (1 to matcher.groupCount).foreach{i => println("i=" + i + ", match=" + matcher.group(i)) }
-        }
-        println("---------------")
-        */
+      case List(file, version, artifactId, groupId @ _*) if file.startsWith(artifactId + "-") => 
 
-        val matcher = Pattern.compile(r).matcher(file)
-        if(matcher.find()) {
-          Some((groupId.reverse.mkString("."), artifactId, version, Option(matcher.group(4)), matcher.group(5)))
+        val f = file.substring(artifactId.length + 1)
+        val timestamp = "^(.*)-([0-9]{8})\\.([0-9]{6})\\-([0-9]*)(-([a-zA-Z0-9]*))?\\.(.*)$"
+        val timestampM = Pattern.compile(timestamp).matcher(f)
+        val snapshot = "^.*-SNAPSHOT(-([a-zA-Z0-9]*))?\\.(.*)$"
+        val snapshotM = Pattern.compile(snapshot).matcher(f)
+
+        // (groupId, artifactId, version, classifier, type, timestamp, buildNumber)
+        if(timestampM.find()) {
+          val t = for {
+            date <- Option(timestampM.group(2))
+            time <- Option(timestampM.group(3))
+          } yield date + "." + time
+          // TODO: Build a internet date out of the timestamp
+          Some((groupId.reverse.mkString("."), artifactId, version, Option(timestampM.group(6)), timestampM.group(7), t, Option(timestampM.group(4))))
+        }
+        else if(snapshotM.find()) {
+          Some((groupId.reverse.mkString("."), artifactId, version, Option(snapshotM.group(2)), snapshotM.group(3), None, None))
         }
         else {
           None
         }
-
-        /*
-        typeR.findFirstIn(file) match {
-          case Some(t) => 
-//            val c = Some(file.substring(artifactId.length + version.length + 2).substring(0, t.length - 1)).filter(!_.isEmpty)
-            println("f = " + file)
-            val x = "\\(" + quote(artifactId + "-" + version) + "\\)-\\(.*\\)" + quote(t)
-            println("x = " + x)
-//            println("c = " + x.r.findFirstIn(file))
-            xs = x.r.findAllIn(file).toList
-            println("c = " + xs)
-            xs match {
-              case List(_, c, _) =>
-                Some((groupId.reverse.mkString("."), artifactId, version, c, t.substring(1)))
-            }
-            val c = None
-            Some((groupId.reverse.mkString("."), artifactId, version, c, t.substring(1)))
-          case _ => None
-        }
-        */
       case _ => None
     }
   }
