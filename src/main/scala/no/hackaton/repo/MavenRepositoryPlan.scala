@@ -7,16 +7,12 @@ import unfiltered.response._
 class MavenRepositoryPlan extends Plan {
   def intent = {
     case MavenArtifactPath(groupId, artifactId, version, classifier, t) =>
-      t match {
-        case "sha1" => Redirect("/dev/null")
-        case "md5" => Redirect("/dev/null")
-        case _ =>
-          println("groupId=" + groupId)
-          println("artifactId=" + artifactId)
-          println("version=" + version)
-          println("classifier=" + classifier)
-          println("type=" + t)
-          Redirect("/upload?groupId=" + groupId + "&artifactId=" + artifactId + "&version=" + version + classifier.map("&classifier=" + _).getOrElse("") + "&type=" + t)
+//      println("MavenRepositoryPlan: type= " + t)
+      if(t.endsWith(".sha1") || t.endsWith(".md5")) {
+        Redirect("/dev/null")
+      }
+      else {
+        Redirect("/upload?group-id=" + groupId + "&artifact-id=" + artifactId + "&version=" + version + classifier.map("&classifier=" + _).getOrElse("") + "&type=" + t)
       }
   }
 }
@@ -30,7 +26,7 @@ object MavenArtifactPath {
     import java.util.regex._
     import java.util.regex.Pattern.quote
 
-    println("req.uri=" + req.uri)
+//    println("req.uri=" + req.uri)
     if(!req.uri.startsWith("/maven-repo/"))
       return None
 
@@ -46,7 +42,7 @@ object MavenArtifactPath {
 //        println("---------------")
 //        println(("\\(" + quote(artifactId + "-" + version) + "\\)-\\(.*\\)\\.\\([a-zA-Z0-9]\\)*").r.findAllIn(file).toList)
 //        var r = ("\\(" + quote(artifactId + "-" + version) + "\\)\\.\\([a-zA-Z0-9]*\\)")
-        var r = ("(" + quote(artifactId + "-" + version) + ")((-)([._a-zA-Z0-9]*))?\\.([a-zA-Z0-9]*)")
+        var r = ("(" + quote(artifactId + "-" + version) + ")((-)([_a-zA-Z0-9]*))?\\.([.a-zA-Z0-9]*)$")
 //        var r = ("(" + quote(artifactId) + ")-((2.0-SNAPSHOT)|([.-a-zA-Z0-9]*))?\\.([a-zA-Z0-9]*)")
 //        r = "(foo-1.0-SNAPSHOT).(jar)"
         /*

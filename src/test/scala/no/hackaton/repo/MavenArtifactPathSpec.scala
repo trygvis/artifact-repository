@@ -19,24 +19,34 @@ class MavenArtifactPathSpec extends Specification {
   }
 
   "MavenArtifactPathSpec" should {
+    val f = MavenArtifactPath.unapply _
+
     "1" in {
-      MavenArtifactPath.unapply("/boo") must beNone
+      f("/boo") must beNone
     }
 
     "2" in {
-      MavenArtifactPath.unapply("/maven-repo/com/example/foo/1.0-SNAPSHOT/foPSHOT-bin.jar") must beNone
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foPSHOT-bin.jar") must beNone
     }
 
     "3" in {
-      MavenArtifactPath.unapply("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", None, "jar"))
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", None, "jar"))
     }
 
     "4" in {
-      MavenArtifactPath.unapply("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT-bin.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", Some("bin"), "jar"))
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-SNAPSHOT-bin.jar") must beSome(("com.example", "foo", "1.0-SNAPSHOT", Some("bin"), "jar"))
     }
 
     "5" in {
-      MavenArtifactPath.unapply("/maven-repo/com/example/test-project-sbt_2.9.1/1.0-SNAPSHOT/test-project-sbt_2.9.1-1.0-SNAPSHOT.pom") must beSome(("com.example", "test-project-sbt_2.9.1", "1.0-SNAPSHOT", None, "pom"))
+      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT.pom") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", None, "pom"))
+    }
+
+    "6" in {
+      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT.pom.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", None, "pom.sha1"))
+    }
+
+    "7" in {
+      f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT-sources.jar.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", Some("sources"), "jar.sha1"))
     }
   }
 }

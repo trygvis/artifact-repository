@@ -14,14 +14,30 @@ case class Artifact(attributes: Attributes, path: Path) {
 object Artifact {
   def attributesToLines(attributes: Attributes) = (List.empty[String] /: attributes)((list, attribute) => (attribute._1 + " = " + attribute._2) :: list)
 
-  def apply(path: Path) = {
-    val Attribute = """\(.*\) = \(.*\)""".r
+  def apply(path: Path): Artifact = {
+    apply(Resource.fromFile(path.path).reader.lines().toList, path)
+  }
+
+  def apply(lines: Seq[String], path: Path) = {
+    val Attribute = """(.*) = (.*)""".r
     def toKV(line: String) = line match {
       case Attribute(k, v) => Some((k, v))
       case _ => None
     }
-    val attributes = Resource.fromFile(path.path).reader.lines().flatMap(toKV).toMap
+    val attributes = lines.flatMap(toKV).toMap
     new Artifact(attributes, path)
+  }
+
+  def artifactFilter(params: Map[String, String])(artifact: Artifact) = {
+    val as = artifact.attributes
+    var ok = true
+//    println("artifact: " + artifact)
+    params.filter({ case (key, expectedValue) =>
+      as.get(key) match {
+        case Some(value) if value.equals(expectedValue) => false
+        case _ => true
+      }
+    }).isEmpty
   }
 }
 
@@ -40,7 +56,7 @@ class ArtifactDatabase(val dir: Path) {
     val blobTmp = dir / (uuid.toString + ".blob.tmp")
     val blob = dir / (uuid.toString + ".blob")
 
-    Resource.fromFile(dbTmp.path).writer.writeStrings(Artifact.attributesToLines(attributes), "\n")
+    Resource.fromFile(dbTmp.path).writer.write(Artifact.attributesToLines(attributes).mkString("\n") + "\n")
     input.copyDataTo(Resource.fromFile(blobTmp.path))
 
     blobTmp.moveTo(blob, true, true)

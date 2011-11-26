@@ -20,10 +20,10 @@ object Urls {
 }
 
 class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
-  def paramsToFilter(params: Map[String, Seq[String]]) = (artifact: Artifact) => {
-    val p = params.mapValues(_.last)
-
-    true
+  def paramsToFilter(params: Map[String, Seq[String]]) = {
+    val p = params.mapValues(_.last).filter(!_._2.isEmpty)
+    println("params=" + p)
+    Artifact.artifactFilter(p) _
   }
 
   import HtmlTemplates._
@@ -32,22 +32,24 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
       Redirect("/index.html")
     case Path(Seg("index.html" :: Nil)) & Urls(urls) =>
       Html(main(frontpage(urls)))
-    case Path(Seg("dev" :: "null" :: Nil)) & Urls(urls) =>
+    case req@Path(Seg("dev" :: "null" :: Nil)) & Urls(urls) =>
+      println("Eating " + req.uri + ", yum!")
       Ok ~> ResponseString("Sucker!")
     case Path("/download") & Params(params) =>
       val seq = db.find(paramsToFilter(params))
         // TODO: This is up to the response media type, some might want to return an empty list instead
-      seq match {
+      Ok ~> (seq match {
         case Seq() =>
-          NotFound ~> ResponseString("Could not find any results matching: " + params)
+          ResponseString("Could not find any results matching: " + params + "\n")
         case Seq(value) =>
-          Ok ~> ResponseString("Found single item " + value + "\n")
+          ResponseString("Found single item " + value.attributes.toList.map(t => t._1 + " = " + t._2).mkString("\n") + "\n")
         case Seq(values @ _*) =>
-          Ok ~> ResponseString("Found many values item " + values + "\n")
-      }
+          val s = "Found " + values.size + " items: \n"
+          PlainTextContent ~> ResponseString(s + values.map(_.lines.sorted.mkString("\n")).map("\n" + _).mkString("\n") + "\n")
+      })
     case req@Path("/upload") & Params(params) =>
       // TODO: Implement support for file uploads (www-urlencoded or whatever it is)
-      ResponseString("Uploading " + params)
+      println("Storing " + params.mapValues {_.last })
       val stream = Body.stream(req)
       val attributes = params.mapValues(_.head)
       val uuid = db.save(attributes, Resource.fromInputStream(stream))
