@@ -48,5 +48,9 @@ class MavenArtifactPathSpec extends Specification {
     "7" in {
       f("/maven-repo/com/example/foo_2.9.1/1.0-SNAPSHOT/foo_2.9.1-1.0-SNAPSHOT-sources.jar.sha1") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", Some("sources"), "jar.sha1"))
     }
+
+    "7" in {
+      f("/maven-repo/com/example/foo/1.0-SNAPSHOT/foo-1.0-20111126.124501-1.jar.") must beSome(("com.example", "foo_2.9.1", "1.0-SNAPSHOT", Some("sources"), "jar.sha1", Some("20111126.124501"), Some(1)))
+    }
   }
 }
