@@ -13,8 +13,6 @@ object Urls {
   def unapply[T](req: HttpRequest[T]) = {
     val protocol = if(req.isSecure) "https" else "http"
     val (host, port) = HostPort.unapply(req).get
-//    val query = QueryString(..)
-//    println("host=" + host + ", port=" + port, ", h=" + h)
     val h = host.replaceAll("(\\S*):.*", "$1")
     val path = "/" // Path.unapply(req).get
     Some(new Urls(UrlBuilder(protocol, h, port, path, Params.unapply(req).get)))
@@ -34,6 +32,8 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
       Redirect("/index.html")
     case Path(Seg("index.html" :: Nil)) & Urls(urls) =>
       Html(main(frontpage(urls)))
+    case Path(Seg("dev" :: "null" :: Nil)) & Urls(urls) =>
+      Ok ~> ResponseString("Sucker!")
     case Path("/download") & Params(params) =>
       val seq = db.find(paramsToFilter(params))
         // TODO: This is up to the response media type, some might want to return an empty list instead
@@ -63,5 +63,10 @@ object ArtifactRepositoryApp extends App {
   val db = new ArtifactDatabase(basedir)
   val artifactRepositoryPlan = new ArtifactRepositoryPlan(db)
 
-  unfiltered.jetty.Http(8080).filter(artifactRepositoryPlan).run()
+  val mavenRepositoryPlan = new MavenRepositoryPlan
+
+  unfiltered.jetty.Http(8080).
+    filter(mavenRepositoryPlan).
+    filter(artifactRepositoryPlan).
+    run()
 }
