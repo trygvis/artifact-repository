@@ -3,10 +3,17 @@ package no.hackaton.repo
 import unfiltered.filter._
 import unfiltered.request._
 import unfiltered.response._
+import java.util.{Calendar, TimeZone}
 import java.util.regex._
 import java.util.regex.Pattern.quote
 
 class MavenRepositoryPlan extends Plan {
+  def utc = TimeZone.getTimeZone("UTC")
+  def now() = {
+    val cal = Calendar.getInstance(utc)
+    "" + cal.get(Calendar.YEAR) + cal.get(Calendar.MONTH) + cal.get(Calendar.DAY_OF_MONTH) + "." + cal.get(Calendar.HOUR_OF_DAY) + cal.get(Calendar.MINUTE) + cal.get(Calendar.SECOND)
+  }
+
   def intent = {
     case MavenArtifactPath(groupId, artifactId, version, classifier, t, timestamp, buildNumber) =>
 //      println("MavenRepositoryPlan: type= " + t)
@@ -14,7 +21,7 @@ class MavenRepositoryPlan extends Plan {
         Redirect("/dev/null")
       }
       else {
-        Redirect("/upload?group-id=" + groupId + "&artifact-id=" + artifactId + "&version=" + version + classifier.map("&classifier=" + _).getOrElse("") + "&type=" + t)
+        Redirect("/upload?group-id=" + groupId + "&artifact-id=" + artifactId + "&version=" + version + classifier.map("&classifier=" + _).getOrElse("") + "&type=" + t + "&timestamp=" + timestamp.getOrElse(now) + buildNumber.map("&build-number=" + _).getOrElse(""))
       }
     case MavenMetadata(_) =>
       Redirect("/dev/null")

@@ -16,4 +16,6 @@ package object repo {
   type ArtifactSeq = Seq[Artifact]
 
   type Attributes = Map[String, String]
+
+  def utf8Charset = java.nio.charset.Charset.forName("utf-8")
 }

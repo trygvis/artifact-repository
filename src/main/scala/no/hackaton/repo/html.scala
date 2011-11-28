@@ -38,6 +38,10 @@ object HtmlTemplates {
         <td><input type="text" name="classifier"/></td>
       </tr>
       <tr>
+        <td>Direct download?</td>
+        <td><input type="text" name="direct-download"/></td>
+      </tr>
+      <tr>
         <td></td>
         <td><input type="submit"/></td>
       </tr>

@@ -19,6 +19,40 @@ object Urls {
   }
 }
 
+trait MavenDefinedKeys {
+  def groupId = "group-id"
+  def artifactId = "artifact-id"
+  def buildNumber = "build-number"
+}
+
+object DefinedKeys extends MavenDefinedKeys {
+  def directDownload = "direct-download"
+  def timestamp = "timestamp"
+}
+
+object Want {
+  def wantFromQuery[T](req: HttpRequest[T]) = {
+      val x: Option[String] = Params.unapply(req).get("mediaType").headOption
+      x.flatMap {
+      case "text/plain" => Some(WantPlainText)
+      case "application/atom+xml" => Some(WantAtom)
+      case _ => None
+    }
+  }
+
+  def wantFromAccept[T](req: HttpRequest[T]) = Accept(req) match {
+    case l@List(_) if l.contains("text/plain") => Some(WantPlainText)
+    case l@List(_) if l.contains("application/atom+xml") => Some(WantAtom)
+    case _ => None
+  }
+
+  def unapply[T](req: HttpRequest[T]) = wantFromQuery(req).orElse(wantFromAccept(req))
+}
+
+sealed trait Want
+case object WantAtom extends Want
+case object WantPlainText extends Want
+
 class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
   def paramsToFilter(params: Map[String, Seq[String]]) = {
     val p = params.mapValues(_.last).filter(!_._2.isEmpty)
@@ -35,18 +69,22 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
     case req@Path(Seg("dev" :: "null" :: Nil)) & Urls(urls) =>
       println("Eating " + req.uri + ", yum!")
       Ok ~> ResponseString("Sucker!")
-    case Path("/download") & Params(params) =>
+    case req@Path("/download") & Params(params) =>
+      val p = params.mapValues(_.last).filter(!_._2.isEmpty)
       val seq = db.find(paramsToFilter(params))
-        // TODO: This is up to the response media type, some might want to return an empty list instead
-      Ok ~> (seq match {
-        case Seq() =>
-          ResponseString("Could not find any results matching: " + params + "\n")
-        case Seq(value) =>
-          ResponseString("Found single item " + value.attributes.toList.map(t => t._1 + " = " + t._2).mkString("\n") + "\n")
-        case Seq(values @ _*) =>
-          val s = "Found " + values.size + " items: \n"
-          PlainTextContent ~> ResponseString(s + values.map(_.lines.sorted.mkString("\n")).map("\n" + _).mkString("\n") + "\n")
-      })
+      Want.unapply(req) match {
+        case Some(WantAtom) =>
+          Ok ~> ResponseString("atom")
+        case Some(WantPlainText) =>
+          // TODO: This is up to the response media type, some might want to return an empty list instead
+          Ok ~> (seq match {
+            case Seq() => PlainTextNotFound(p)
+            case Seq(value) => PlainTextSingleArtifact(p, value)
+            case Seq(values @ _*) => PlainTextMultipleArtifacts(p, values)
+          })
+        case _ =>
+          Ok ~> ResponseString("Unknown content type\n")
+      }
     case req@Path("/upload") & Params(params) =>
       // TODO: Implement support for file uploads (www-urlencoded or whatever it is)
       println("Storing " + params.mapValues {_.last })
