@@ -4,9 +4,12 @@ import unfiltered.filter._
 import unfiltered.response._
 import java.util.Date
 
-trait ResponseMediaType {
-  def contentType: String
+object ResponseUtils {
+  def queryToString(params: Map[String, String]) =
+    params.map(kv => kv._1 + "=" + kv._2).mkString(", ")
 }
+
+import ResponseUtils._
 
 object PlainTextNotFound {
   def apply(params: Map[String, String]) = ResponseString("Could not find any results matching: " + params + "\n")
@@ -14,7 +17,7 @@ object PlainTextNotFound {
 
 object PlainTextSingleArtifact {
   def apply(params: Map[String, String], value: Artifact) = {
-    val s = "Query = " + params + ", \n" +
+    val s = "Query = " + queryToString(params) + ", \n" +
       "Artifact: " + value.attributes.toList.map(t => t._1 + " = " + t._2).mkString("\n") + "\n"
     Charset(utf8Charset) ~> PlainTextContent ~> ResponseString(s)
   }
@@ -34,7 +37,7 @@ object AtomFeed {
     val author = Person("Artifact Repository")
     val s = Feed(
       "urn:artifact-repository:search",
-      "Query: " + params.map(kv => kv._1 + "=" + kv._2).mkString(", "),
+      "Query: " + queryToString(params),
       date,
       Some(author),
       values.map(a => Entry(a.title, a.urn, a.timestamp))).toXml.toString

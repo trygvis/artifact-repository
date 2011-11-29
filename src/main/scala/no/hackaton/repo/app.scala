@@ -8,7 +8,12 @@ import scala.collection.immutable.{TreeMap,TreeSet}
 import scalax.io._
 
 class Urls(baseurl: UrlBuilder) {
-  lazy val downloadArtifact: UrlBuilder = baseurl / "download"
+  def search: UrlBuilder = search(Map.empty)
+
+  def search(params: Map[String, String], mediaType: Option[Want] = None) = {
+    val url = (baseurl / "search") ? params
+    mediaType.flatMap(want => Some(url ? (DefinedKeys.mediaType -> want.id))).getOrElse(url)
+  }
 }
 
 object Urls {
@@ -16,8 +21,9 @@ object Urls {
     val protocol = if(req.isSecure) "https" else "http"
     val (host, port) = HostPort.unapply(req).get
     val h = host.replaceAll("(\\S*):.*", "$1")
-    val path = "/" // Path.unapply(req).get
-    Some(new Urls(UrlBuilder(protocol, h, port, path, Params.unapply(req).get)))
+    val path = "/"
+    val query = Map.empty[String, Seq[String]] // Params.unapply(req).get
+    Some(new Urls(UrlBuilder(protocol, h, port, path, query)))
   }
 }
 
@@ -38,13 +44,17 @@ object DefinedKeys extends MavenDefinedKeys {
   val mediaType = key("media-type")
 }
 
+sealed class Want(val id: String)
+case object WantAtom extends Want("atom")
+case object WantPlainText extends Want("text")
+
 object Want {
   import DefinedKeys._
 
   def wantFromQuery[T](req: HttpRequest[T]) = {
     Params.unapply(req).get(mediaType).headOption.flatMap {
-      case "text" => Some(WantPlainText)
-      case "atom" => Some(WantAtom)
+      case WantPlainText.id => Some(WantPlainText)
+      case WantAtom.id => Some(WantAtom)
       case _ => None
     }
   }
@@ -58,10 +68,6 @@ object Want {
   def unapply[T](req: HttpRequest[T]) = wantFromQuery(req).orElse(wantFromAccept(req))
 }
 
-sealed trait Want
-case object WantAtom extends Want
-case object WantPlainText extends Want
-
 class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
   import HtmlTemplates._
   def intent = {
@@ -69,10 +75,10 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
       Redirect("/index.html")
     case Path(Seg("index.html" :: Nil)) & Urls(urls) =>
       Html(main(frontpage(urls)))
-    case req@Path(Seg("dev" :: "null" :: Nil)) & Urls(urls) =>
+    case req@Path(Seg("dev" :: "null" :: Nil)) =>
       println("Eating " + req.uri + ", yum!")
       Ok ~> ResponseString("Sucker!")
-    case req@Path("/download") & Params(params) =>
+    case req@Path("/search") & Params(params) & Urls(urls) =>
       val date = new JDate
       val p = params.mapValues(_.last).filter(!_._2.isEmpty) -- DefinedKeys.keys
       println("Artifact filter: " + p)
@@ -90,7 +96,7 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
             case Seq(values @ _*) => PlainTextMultipleArtifacts(p, values)
           })
         case _ =>
-          Ok ~> ResponseString("Unknown content type\n")
+          Ok ~> Html(main(searchResult(urls, p, seq)))
       }
     case req@Path("/upload") & Params(params) =>
       // TODO: Implement support for file uploads (www-urlencoded or whatever it is)
