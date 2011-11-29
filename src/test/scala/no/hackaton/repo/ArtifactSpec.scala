@@ -1,6 +1,7 @@
 package no.hackaton.repo
 
 import org.specs2.mutable._
+import scala.collection.immutable.TreeMap
 import scalax.file._
 
 class ArtifactSpec extends Specification {
@@ -9,15 +10,15 @@ class ArtifactSpec extends Specification {
   val path = Path("awesome")
   "Artifact.apply()" should {
     "work" in {
-      Artifact(List("a = x", "b = y", "c = z"), path).attributes must_== Map(("a" -> "x"), ("b" -> "y"), ("c" -> "z"))
+      Artifact(path, List("a = x", "b = y", "c = z")).attributes must_== TreeMap.empty[String, String] ++ Seq(("a" -> "x"), ("b" -> "y"), ("c" -> "z"))
     }
   }
 
   "Artifact.artifactFilter" should {
     "work" in {
-      val foo = Artifact(Map("group-id" -> "com.example", "artifact-id" -> "foo"), Path("x"))
-      val bar = Artifact(Map("group-id" -> "com.example", "artifact-id" -> "bar"), Path("x"))
-      val baz = Artifact(Map("group-id" -> "com.example", "artifact-id" -> "baz"), Path("x"))
+      val foo = Artifact(path, Seq("group-id = com.example", "artifact-id = foo"))
+      val bar = Artifact(path, Seq("group-id = com.example", "artifact-id = bar"))
+      val baz = Artifact(path, Seq("group-id = com.example", "artifact-id = baz"))
 
       val artifacts = List(foo, bar, baz)
 
@@ -26,6 +27,12 @@ class ArtifactSpec extends Specification {
       artifacts.filter(artifactFilter(Map("group-id" -> "com.example"))) must_== List(foo, bar, baz)
 
       artifacts.filter(artifactFilter(Map("group-id" -> "com.example", "artifact-id" -> "baz"))) must_== List(baz)
+    }
+  }
+
+  "Artifact.urn" should {
+    "work" in {
+      Artifact(path, Seq("group-id = com.example", "artifact-id = baz")).urn must_== "urn:artifact:artifact-id=baz,group-id=com.example"
     }
   }
 }

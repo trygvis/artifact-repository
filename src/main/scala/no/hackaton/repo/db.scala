@@ -1,31 +1,35 @@
 package no.hackaton.repo
 
-//import java.io._
-import java.util.UUID
+import java.util.{Date, UUID}
+import scala.collection.immutable.TreeMap
 import scalax.io._
 import scalax.file._
 
-case class Artifact(attributes: Attributes, path: Path) {
-//  def fileBody = ("" /: attributes)((s, attribute) => s + attribute._1 + " = " + attribute._2 + "\n")
+case class Artifact(path: Path, timestamp: Date, attributes: Attributes) {
+  def title = attributes.map(kv => kv._1 + "=" + kv._2).mkString(",")
+  def urn = "urn:artifact:" + title
 
   def lines = Artifact.attributesToLines(attributes)
 }
 
 object Artifact {
+  private lazy val emptyAttributes = TreeMap.empty[String, String]
+
   def attributesToLines(attributes: Attributes) = (List.empty[String] /: attributes)((list, attribute) => (attribute._1 + " = " + attribute._2) :: list)
 
-  def apply(path: Path): Artifact = {
-    apply(Resource.fromFile(path.path).reader.lines().toList, path)
+  def load(path: Path): Artifact = {
+    apply(path, Resource.fromFile(path.path).reader.lines().toList)
   }
 
-  def apply(lines: Seq[String], path: Path) = {
+//  def apply(path: Path, lines: String*): Artifact = apply(path, lines.toSeq)
+
+  def apply(path: Path, lines: Seq[String]) = {
     val Attribute = """(.*) = (.*)""".r
     def toKV(line: String) = line match {
       case Attribute(k, v) => Some((k, v))
       case _ => None
     }
-    val attributes = lines.flatMap(toKV).toMap
-    new Artifact(attributes, path)
+    new Artifact(path, new Date(path.lastModified), emptyAttributes ++ lines.flatMap(toKV))
   }
 
   def artifactFilter(params: Map[String, String])(artifact: Artifact) = {
@@ -45,7 +49,7 @@ class ArtifactDatabase(val dir: Path) {
   def find(filter: Artifact => Boolean): ArtifactSeq = {
     val files = dir * PathMatcherFactory.GlobToMatcher("*.db")
 
-    files.map(Artifact.apply).filter(filter).toSeq
+    files.map(Artifact.load).filter(filter).toSeq
   }
 
   def save(attributes: Attributes, input: Input): UUID = {

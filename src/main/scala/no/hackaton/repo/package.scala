@@ -15,7 +15,7 @@ package object repo {
   // TODO: s,Seq,Stream,
   type ArtifactSeq = Seq[Artifact]
 
-  type Attributes = Map[String, String]
+  type Attributes = scala.collection.immutable.SortedMap[String, String]
 
   def utf8Charset = java.nio.charset.Charset.forName("utf-8")
 }
