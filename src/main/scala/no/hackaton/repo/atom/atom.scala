@@ -56,19 +56,19 @@ case class Person(name: String, uri: Option[String] = None, email: Option[String
     </author>
 }
 
-case class Feed(id: String, title: String, updated: Date, author: Option[Person] = None, entries: Seq[Entry] = Seq.empty) {
+case class Feed(id: String, title: String, updated: Date, author: Seq[Person] = Seq.empty, entries: Seq[Entry] = Seq.empty) {
   def toXml = {
     <feed xmlns="http://www.w3.org/2005/Atom">
       <title>{title}</title>
       <id>{id}</id>
-      {author.map(_.toXml).getOrElse(NodeSeq.Empty)}
+      {author.map(_.toXml)}
       <updated>{dateToAtomDate(updated)}</updated>
       {entries.map(_.toXml)}
     </feed>
   }
 }
 
-case class Entry(title: String, id: String, updated: Date, links: Seq[Link] = Seq.empty, summary: Option[String] = None) {
+case class Entry(title: String, id: String, updated: Date, links: Seq[Link] = Seq.empty, summary: Option[String] = None, author: Seq[Person] = Seq.empty) {
   def toXml = {
   <entry>
     <title>{title}</title>

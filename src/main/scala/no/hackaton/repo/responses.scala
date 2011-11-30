@@ -33,14 +33,21 @@ object PlainTextMultipleArtifacts {
 
 object AtomFeed {
   import atom._
-  def apply(date: Date, params: Map[String, String], values: Seq[Artifact]) = {
+  def apply(date: Date, params: Map[String, String], values: Seq[Artifact])(implicit urls: Urls) = {
     val author = Person("Artifact Repository")
     val s = Feed(
       "urn:artifact-repository:search",
       "Query: " + queryToString(params),
       date,
-      Some(author),
-      values.map(a => Entry(a.title, a.urn, a.timestamp))).toXml.toString
+      Seq(author),
+      values.map(artifact2entry)).toXml.toString
     Charset(utf8Charset) ~> ContentType("application/atom+xml") ~> ResponseString(s)
+  }
+
+  def artifact2entry(a: Artifact)(implicit urls: Urls) = {
+    val links = List(
+        Link(urls.artifact(a.attributes)(), Some(WantAtom.mediaType), Some("alternate")),
+        Link(urls.artifact(a.attributes)(), Some(WantHtml.mediaType), Some("alternate")))
+    Entry(a.title, a.urn, a.timestamp, links)
   }
 }

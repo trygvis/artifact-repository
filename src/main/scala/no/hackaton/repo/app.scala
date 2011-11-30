@@ -7,13 +7,19 @@ import java.util.{Date => JDate}
 import scala.collection.immutable.{TreeMap,TreeSet}
 import scalax.io._
 
-class Urls(baseurl: UrlBuilder) {
+class Urls(private val baseurl: UrlBuilder) {
+  def start = baseurl / "index.html"
+
   def search: UrlBuilder = search(Map.empty)
 
-  def search(params: Map[String, String], mediaType: Option[Want] = None) = {
-    val url = (baseurl / "search") ? params
+  def search(params: Map[String, String], mediaType: Option[Want] = None) =
+    addMediaType((baseurl / "artifact") ? params, mediaType)
+
+  def artifact(params: Map[String, String], mediaType: Option[Want] = None) =
+    addMediaType((baseurl / "artifact") ? params, mediaType)
+
+  private def addMediaType(url: UrlBuilder, mediaType: Option[Want]) =
     mediaType.flatMap(want => Some(url ? (DefinedKeys.mediaType -> want.id))).getOrElse(url)
-  }
 }
 
 object Urls {
@@ -44,9 +50,10 @@ object DefinedKeys extends MavenDefinedKeys {
   val mediaType = key("media-type")
 }
 
-sealed class Want(val id: String)
-case object WantAtom extends Want("atom")
-case object WantPlainText extends Want("text")
+sealed class Want(val id: String, val mediaType: String)
+case object WantAtom extends Want("atom", "application/atom+xml")
+case object WantHtml extends Want("html", "text/html")
+case object WantPlainText extends Want("text", "text/plain")
 
 object Want {
   import DefinedKeys._
@@ -68,13 +75,16 @@ object Want {
   def unapply[T](req: HttpRequest[T]) = wantFromQuery(req).orElse(wantFromAccept(req))
 }
 
+// xml = <?xml version=\"1.0\" encoding=\"utf-8\"?>\n
+case class Html5(nodes: scala.xml.NodeSeq) extends ComposeResponse(HtmlContent ~> ResponseString("<!DOCTYPE html>\n" + scala.xml.Utility.toXML(nodes.head, minimizeTags = true)))
+
 class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
   import HtmlTemplates._
   def intent = {
     case Path(Seg(Nil)) =>
       Redirect("/index.html")
     case Path(Seg("index.html" :: Nil)) & Urls(urls) =>
-      Html(main(frontpage(urls)))
+      Html5(frontpage(urls))
     case req@Path(Seg("dev" :: "null" :: Nil)) =>
       println("Eating " + req.uri + ", yum!")
       Ok ~> ResponseString("Sucker!")
@@ -87,7 +97,7 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
 //      Date(date) ~> // TODO: Set this to HTTP date
       Want.unapply(req) match {
         case Some(WantAtom) =>
-          Ok ~> AtomFeed(date, p, seq)
+          Ok ~> AtomFeed(date, p, seq)(urls)
         case Some(WantPlainText) =>
           // TODO: This is up to the response media type, some might want to return an empty list instead
           Ok ~> (seq match {
@@ -96,7 +106,7 @@ class ArtifactRepositoryPlan(db: ArtifactDatabase) extends Plan {
             case Seq(values @ _*) => PlainTextMultipleArtifacts(p, values)
           })
         case _ =>
-          Ok ~> Html(main(searchResult(urls, p, seq)))
+          Ok ~> Html5(searchResult(urls, p, seq))
       }
     case req@Path("/upload") & Params(params) =>
       // TODO: Implement support for file uploads (www-urlencoded or whatever it is)

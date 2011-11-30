@@ -2,19 +2,37 @@ package no.hackaton.repo
 
 import scala.xml._
 
+case class Link(href: String, rel: String, want: Want) {
+  def toXml = <link href={href} rel={rel} type={want.mediaType}/>
+}
+
 object HtmlTemplates {
+  implicit def url2string(x: UrlBuilder) = x()
+
   import ResponseUtils._
 
-  def main(body: NodeSeq) = 
-  <html>
-    <body>
-      {body}
-    </body>
+  def main(title: String, links: Seq[Link] = Seq.empty, body: NodeSeq) = 
+  <html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+      <meta charset="UTF-8"/>
+      <title>{title}</title>
+      {links.map(_.toXml)}
+    </head>
+    <body>{body}</body>
   </html>
 
-  def searchResult(urls: Urls, params: Map[String, String], artifacts: ArtifactSeq) =
+  def header(urls: Urls, title: String) =
   <xml:group>
-    <h1>Search Result</h1>
+    <a href={urls.start}>Start</a>
+    <h1>{title}</h1>
+  </xml:group>
+
+  def searchResult(implicit urls: Urls, params: Map[String, String], artifacts: ArtifactSeq) =
+    main("Search Results", links = List(Link(urls.search(params, Some(WantAtom)), "self", WantAtom)), body = searchResultBody)
+
+  def searchResultBody(implicit urls: Urls, params: Map[String, String], artifacts: ArtifactSeq) =
+  <xml:group>
+    {header(urls, "Search Result")}
     <h2>Input</h2>
     <ul>
       <li>Query: {queryToString(params)}</li>
@@ -32,7 +50,11 @@ object HtmlTemplates {
       </ul>
     </div>
 
-  def frontpage(urls: Urls) =
+  def frontpage(implicit urls: Urls) = {
+    main("Artifact Repository", body = frontpageBody)
+  }
+
+  def frontpageBody(implicit urls: Urls) = 
   <xml:group>
     <h1>Welcome to the Artifact Repository</h1>
     <h2>Forms</h2>
@@ -74,7 +96,7 @@ object HtmlTemplates {
         </td>
       </tr>
       <tr>
-        <td></td>
+        <td><!-- empty --></td>
         <td><input type="submit"/></td>
       </tr>
       </table>
